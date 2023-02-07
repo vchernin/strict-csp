@@ -9,7 +9,7 @@
     "directory": "strict-csp-html-webpack-plugin"
   },
   "dependencies": {
-    "strict-csp": "^1.0.0-beta.1"
+    "strict-csp": "git://github.com/vchernin/strict-csp#style-hashes"
   },
   "devDependencies": {},
   "scripts": {
