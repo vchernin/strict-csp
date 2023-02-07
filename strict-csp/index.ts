@@ -21,6 +21,7 @@ import * as cheerio from 'cheerio';
 export class StrictCsp {
   private static readonly HASH_FUNCTION = 'sha256';
   private static readonly INLINE_SCRIPT_SELECTOR = 'script:not([src])';
+  private static readonly INLINE_STYLE_SELECTOR = 'style:not([href])';
   private static readonly SOURCED_SCRIPT_SELECTOR = 'script[src]';
   private $: cheerio.Root;
 
@@ -42,7 +43,8 @@ export class StrictCsp {
    * If you modify this CSP, make sure it has not become trivially bypassable by
    * checking the policy using csp-evaluator.withgoogle.com.
    *
-   * @param hashes A list of sha-256 hashes of trusted inline scripts.
+   * @param scriptHashes A list of sha-256 hashes of trusted inline scripts.
+   * @param styleHashes A list of sha-256 hashes of trusted inline styles.
    * @param enableTrustedTypes If Trusted Types should be enabled for scripts.
    * @param enableBrowserFallbacks If fallbacks for older browsers should be
    *   added. This is will not weaken the policy as modern browsers will ignore
@@ -52,7 +54,8 @@ export class StrictCsp {
    *   keyword which will make your policy slightly less secure.
    */
   static getStrictCsp(
-    hashes?: string[],
+    scriptHashes?: string[],
+    styleHashes?: string[],
     // default CSP options
     cspOptions: {
       enableBrowserFallbacks?: boolean;
@@ -64,10 +67,12 @@ export class StrictCsp {
       enableUnsafeEval: false,
     }
   ): string {
-    hashes = hashes || [];
+    scriptHashes = scriptHashes || [];
+    styleHashes = styleHashes || [];
     let strictCspTemplate = {
       // 'strict-dynamic' allows hashed scripts to create new scripts.
-      'script-src': [`'strict-dynamic'`, ...hashes],
+      'script-src': [`'strict-dynamic'`, ...scriptHashes],
+      'style-src': [...styleHashes],
       // Restricts `object-src` to disable dangerous plugins like Flash.
       'object-src': [`'none'`],
       // Restricts `base-uri` to block the injection of `<base>` tags. This
@@ -76,7 +81,7 @@ export class StrictCsp {
       'base-uri': [`'self'`],
     };
 
-    // Adds fallbacks for browsers not compatible to CSP3 and CSP2.
+    // Adds script fallbacks for browsers not compatible to CSP3 and CSP2.
     // These fallbacks are ignored by modern browsers in presence of hashes,
     // and 'strict-dynamic'.
     if (cspOptions.enableBrowserFallbacks) {
@@ -84,7 +89,7 @@ export class StrictCsp {
       // ignore the 'https:' fallback.
       strictCspTemplate['script-src'].push('https:');
       // 'unsafe-inline' is only ignored in presence of a hash or nonce.
-      if (hashes.length > 0) {
+      if (scriptHashes.length > 0) {
         strictCspTemplate['script-src'].push(`'unsafe-inline'`);
       }
     }
@@ -148,7 +153,7 @@ export class StrictCsp {
       return;
     }
 
-    // const hash = StrictCsp.hashInlineScript(loaderScript);
+    // const hash = StrictCsp.hashInlineObject(loaderScript);
     // const comment = cheerio.load(`<!-- CSP hash: ${hash} -->`).root();
     // comment.appendTo(this.$('body'));
     const newScript = cheerio.load('<script>')('script');
@@ -161,7 +166,16 @@ export class StrictCsp {
    */
   hashAllInlineScripts(): string[] {
     return this.$(StrictCsp.INLINE_SCRIPT_SELECTOR)
-      .map((i, elem) => StrictCsp.hashInlineScript(this.$(elem).html() || ''))
+      .map((i, elem) => StrictCsp.hashInlineObject(this.$(elem).html() || ''))
+      .get();
+  }
+
+  /**
+   * Returns a list of hashes of all inline styles found in the HTML document.
+   */
+  hashAllInlineStyles(): string[] {
+    return this.$(StrictCsp.INLINE_STYLE_SELECTOR)
+      .map((i, elem) => StrictCsp.hashInlineObject(this.$(elem).html() || ''))
       .get();
   }
 
@@ -189,7 +203,7 @@ export class StrictCsp {
    * @param scriptText Text between opening and closing script tag. Has to
    *     include whitespaces and newlines!
    */
-  static hashInlineScript(scriptText: string): string {
+  static hashInlineObject(scriptText: string): string {
     const hash = crypto
       .createHash(StrictCsp.HASH_FUNCTION)
       .update(scriptText, 'utf-8')
