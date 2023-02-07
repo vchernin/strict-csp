@@ -10,7 +10,7 @@ strict-csp/node_modules
 react-app/coverage
 
 # built
-strict-csp/build
+# strict-csp/build
 react-app/build
 react-app/dist
 
