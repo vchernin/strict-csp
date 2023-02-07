@@ -42,8 +42,9 @@ class StrictCspHtmlWebpackPlugin {
       const strictCspModule = new strictCspLib.StrictCsp(htmlPluginData.html);
       strictCspModule.refactorSourcedScriptsForHashBasedCsp();
       const scriptHashes = strictCspModule.hashAllInlineScripts();
+      const styleHashes = strictCspModule.hashAllInlineStyles();
       const { enableTrustedTypes, enableUnsafeEval } = this.options;
-      const strictCsp = strictCspLib.StrictCsp.getStrictCsp(scriptHashes, {
+      const strictCsp = strictCspLib.StrictCsp.getStrictCsp(scriptHashes, styleHashes, {
         enableBrowserFallbacks: true,
         enableTrustedTypes,
         enableUnsafeEval,
